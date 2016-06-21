@@ -3275,13 +3275,14 @@ private:
     void visit(const Load *op) {
         // Load of a broadcast should be broadcast of the load
         Expr index = mutate(op->index);
+        Expr predicate = mutate(op->predicate);
         if (const Broadcast *b = index.as<Broadcast>()) {
-            Expr load = Load::make(op->type.element_of(), op->name, b->value, op->image, op->param);
+            Expr load = Load::make(op->type.element_of(), op->name, b->value, op->image, op->param, op->predicate);
             expr = Broadcast::make(load, b->lanes);
-        } else if (index.same_as(op->index)) {
+        } else if (index.same_as(op->index) && predicate.same_as(op->predicate)) {
             expr = op;
         } else {
-            expr = Load::make(op->type, op->name, index, op->image, op->param);
+            expr = Load::make(op->type, op->name, index, op->image, op->param, predicate);
         }
     }
 
@@ -3458,7 +3459,8 @@ private:
                     if (interleaved_index.as<Ramp>()) {
                         t = first_load->type;
                         t = t.with_lanes(t.lanes() * terms);
-                        expr = Load::make(t, first_load->name, interleaved_index, first_load->image, first_load->param);
+                        //TODO(psuriana)
+                        expr = Load::make(t, first_load->name, interleaved_index, first_load->image, first_load->param, const_true(t.lanes()));
                         return;
                     }
                 }
@@ -3870,16 +3872,17 @@ private:
     void visit(const Store *op) {
         Expr value = mutate(op->value);
         Expr index = mutate(op->index);
+        Expr predicate = mutate(op->predicate);
 
         const Load *load = value.as<Load>();
 
         if (load && load->name == op->name && equal(load->index, index)) {
             // foo[x] = foo[x] is a no-op
             stmt = Evaluate::make(0);
-        } else if (value.same_as(op->value) && index.same_as(op->index)) {
+        } else if (value.same_as(op->value) && index.same_as(op->index) && predicate.same_as(op->predicate)) {
             stmt = op;
         } else {
-            stmt = Store::make(op->name, value, index, op->param);
+            stmt = Store::make(op->name, value, index, op->param, predicate);
         }
     }
 
@@ -4998,9 +5001,9 @@ void simplify_test() {
 
     // Now check that an interleave of some collapsible loads collapses into a single dense load
     {
-        Expr load1 = Load::make(Float(32, 4), "buf", ramp(x, 2, 4), Buffer(), Parameter());
-        Expr load2 = Load::make(Float(32, 4), "buf", ramp(x+1, 2, 4), Buffer(), Parameter());
-        Expr load12 = Load::make(Float(32, 8), "buf", ramp(x, 1, 8), Buffer(), Parameter());
+        Expr load1 = Load::make(Float(32, 4), "buf", ramp(x, 2, 4), Buffer(), Parameter(), const_true(4));
+        Expr load2 = Load::make(Float(32, 4), "buf", ramp(x+1, 2, 4), Buffer(), Parameter(), const_true(4));
+        Expr load12 = Load::make(Float(32, 8), "buf", ramp(x, 1, 8), Buffer(), Parameter(), const_true(8));
         check(interleave_vectors({load1, load2}), load12);
 
         // They don't collapse in the other order
@@ -5008,7 +5011,7 @@ void simplify_test() {
         check(e, e);
 
         // Or if the buffers are different
-        Expr load3 = Load::make(Float(32, 4), "buf2", ramp(x+1, 2, 4), Buffer(), Parameter());
+        Expr load3 = Load::make(Float(32, 4), "buf2", ramp(x+1, 2, 4), Buffer(), Parameter(), const_true(4));
         e = interleave_vectors({load1, load3});
         check(e, e);
 

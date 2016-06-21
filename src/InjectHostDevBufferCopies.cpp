@@ -394,10 +394,11 @@ class InjectBufferCopies : public IRMutator {
             const Load *l = op->args[0].as<Load>();
             internal_assert(l);
             Expr new_index = mutate(l->index);
-            if (l->index.same_as(new_index)) {
+            Expr new_predicate = mutate(l->predicate);
+            if (l->index.same_as(new_index) && l->predicate.same_as(new_predicate)) {
                 expr = op;
             } else {
-                Expr new_load = Load::make(l->type, l->name, new_index, Buffer(), Parameter());
+                Expr new_load = Load::make(l->type, l->name, new_index, Buffer(), Parameter(), new_predicate);
                 expr = Call::make(op->type, op->name, {new_load}, Call::Intrinsic);
             }
         } else if (op->is_intrinsic(Call::image_load)) {

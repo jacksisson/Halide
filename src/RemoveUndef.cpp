@@ -118,10 +118,15 @@ private:
     void visit(const Load *op) {
         Expr index = mutate(op->index);
         if (!expr.defined()) return;
-        if (index.same_as(op->index)) {
+
+        //TODO(psuriana)
+        Expr pred = mutate(op->predicate);
+        if (!expr.defined()) return;
+
+        if (index.same_as(op->index) && pred.same_as(op->predicate)) {
             expr = op;
         } else {
-            expr = Load::make(op->type, op->name, index, op->image, op->param);
+            expr = Load::make(op->type, op->name, index, op->image, op->param, pred);
         }
     }
 
@@ -286,15 +291,22 @@ private:
             return;
         }
 
+        Expr pred = mutate(op->predicate);
+        if (!pred.defined()) {
+            stmt = Stmt();
+            return;
+        }
+
         if (predicate.defined()) {
             // This becomes a conditional store
-            stmt = IfThenElse::make(predicate, Store::make(op->name, value, index, op->param));
+            stmt = Store::make(op->name, value, index, op->param, predicate && pred);
             predicate = Expr();
         } else if (value.same_as(op->value) &&
-                   index.same_as(op->index)) {
+                   index.same_as(op->index) &&
+                   pred.same_as(op->predicate)) {
             stmt = op;
         } else {
-            stmt = Store::make(op->name, value, index, op->param);
+            stmt = Store::make(op->name, value, index, op->param, pred);
         }
     }
 

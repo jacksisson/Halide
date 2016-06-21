@@ -921,7 +921,7 @@ public:
             Expr offset_expression = Variable::make(Int(32), "gpu.vertex_offset") +
                                      attribute_order[attribute_name];
 
-            stmt = Store::make(vertex_buffer_name, op->args[1], offset_expression, Parameter());
+            stmt = Store::make(vertex_buffer_name, op->args[1], offset_expression, Parameter(), const_true());
         } else {
             IRFilter::visit(op);
         }
@@ -1020,12 +1020,12 @@ public:
                 // order
                 mutated_body = make_block(Store::make(vertex_buffer_name,
                                                       coord1,
-                                                      gpu_varying_offset + 1, Parameter()),
+                                                      gpu_varying_offset + 1, Parameter(), const_true()),
                                            mutated_body);
 
                 mutated_body = make_block(Store::make(vertex_buffer_name,
                                                        coord0,
-                                                       gpu_varying_offset + 0, Parameter()),
+                                                       gpu_varying_offset + 0, Parameter(), const_true()),
                                            mutated_body);
 
                 // TODO: The value 2 in this expression must be changed to reflect

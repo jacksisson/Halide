@@ -172,7 +172,8 @@ private:
             expr = op;
         } else {
             Type t = op->type.with_lanes(new_lanes);
-            expr = Load::make(t, op->name, mutate(op->index), op->image, op->param);
+            //TODO(psuriana)
+            expr = Load::make(t, op->name, mutate(op->index), op->image, op->param, mutate(op->predicate));
         }
     }
 
@@ -491,10 +492,17 @@ class Interleaver : public IRMutator {
 
         should_deinterleave = false;
         Expr idx = mutate(op->index);
-        expr = Load::make(op->type, op->name, idx, op->image, op->param);
         if (should_deinterleave) {
-            expr = deinterleave_expr(expr);
+            idx = deinterleave_expr(idx);
         }
+
+        should_deinterleave = false;
+        Expr predicate = mutate(op->predicate);
+        if (should_deinterleave) {
+            predicate = deinterleave_expr(predicate);
+        }
+
+        expr = Load::make(op->type, op->name, idx, op->image, op->param, predicate);
 
         should_deinterleave = old_should_deinterleave;
         num_lanes = old_num_lanes;
@@ -516,7 +524,13 @@ class Interleaver : public IRMutator {
             value = deinterleave_expr(value);
         }
 
-        stmt = Store::make(op->name, value, idx, op->param);
+        should_deinterleave = false;
+        Expr predicate = mutate(op->predicate);
+        if (should_deinterleave) {
+            predicate = deinterleave_expr(predicate);
+        }
+
+        stmt = Store::make(op->name, value, idx, op->param, predicate);
 
         should_deinterleave = old_should_deinterleave;
         num_lanes = old_num_lanes;
@@ -641,7 +655,8 @@ class Interleaver : public IRMutator {
                 if (args[j].defined()) goto fail;
 
                 if (stride == 1) {
-                    args[j] = Load::make(t, load_name, stores[i].as<Store>()->index, load_image, load_param);
+                    args[j] = Load::make(t, load_name, stores[i].as<Store>()->index, load_image,
+                                         load_param, stores[i].as<Store>()->predicate);
                 } else {
                     args[j] = stores[i].as<Store>()->value;
                 }
@@ -654,7 +669,8 @@ class Interleaver : public IRMutator {
             t = t.with_lanes(lanes*stores.size());
             Expr index = Ramp::make(base, make_one(base.type()), t.lanes());
             Expr value = Call::make(t, Call::interleave_vectors, args, Call::PureIntrinsic);
-            Stmt new_store = Store::make(store->name, value, index, store->param);
+            //TODO(psuriana): might need to interleave the predicate
+            Stmt new_store = Store::make(store->name, value, index, store->param, store->predicate);
 
             // Continue recursively into the stuff that
             // collect_strided_stores didn't collect.
@@ -711,9 +727,9 @@ void deinterleave_vector_test() {
     check(ramp, ramp_a, ramp_b);
     check(broadcast, broadcast_a, broadcast_b);
 
-    check(Load::make(ramp.type(), "buf", ramp, Buffer(), Parameter()),
-          Load::make(ramp_a.type(), "buf", ramp_a, Buffer(), Parameter()),
-          Load::make(ramp_b.type(), "buf", ramp_b, Buffer(), Parameter()));
+    check(Load::make(ramp.type(), "buf", ramp, Buffer(), Parameter(), const_true(ramp.type().lanes())),
+          Load::make(ramp_a.type(), "buf", ramp_a, Buffer(), Parameter(), const_true(ramp_a.type().lanes())),
+          Load::make(ramp_b.type(), "buf", ramp_b, Buffer(), Parameter(), const_true(ramp_b.type().lanes())));
 
     std::cout << "deinterleave_vector test passed" << std::endl;
 }

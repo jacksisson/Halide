@@ -229,9 +229,13 @@ Expr Select::make(Expr condition, Expr true_value, Expr false_value) {
     return node;
 }
 
-Expr Load::make(Type type, std::string name, Expr index, Buffer image, Parameter param) {
+Expr Load::make(Type type, std::string name, Expr index, Buffer image, Parameter param, Expr pred) {
     internal_assert(index.defined()) << "Load of undefined\n";
     internal_assert(type.lanes() == index.type().lanes()) << "Vector lanes of Load must match vector lanes of index\n";
+    internal_assert(type.lanes() == pred.type().lanes())
+        << "Vector lanes of Load must match vector lanes of predicate\n"
+        << "Index: " << index << "\n"
+        << "pred: " << pred << "\n";
 
     Load *node = new Load;
     node->type = type;
@@ -239,6 +243,7 @@ Expr Load::make(Type type, std::string name, Expr index, Buffer image, Parameter
     node->index = index;
     node->image = image;
     node->param = param;
+    node->predicate = pred;
     return node;
 }
 
@@ -333,15 +338,18 @@ Stmt For::make(std::string name, Expr min, Expr extent, ForType for_type, Device
     return node;
 }
 
-Stmt Store::make(std::string name, Expr value, Expr index, Parameter param) {
+Stmt Store::make(std::string name, Expr value, Expr index, Parameter param, Expr pred) {
     internal_assert(value.defined()) << "Store of undefined\n";
     internal_assert(index.defined()) << "Store of undefined\n";
+    internal_assert(index.type().lanes() == pred.type().lanes())
+        << "Vector lanes of Store index must match vector lanes of predicate\n";
 
     Store *node = new Store;
     node->name = name;
     node->value = value;
     node->index = index;
     node->param = param;
+    node->predicate = pred;
     return node;
 }
 

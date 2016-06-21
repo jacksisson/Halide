@@ -101,11 +101,11 @@ void IRPrinter::test() {
     expr_source << (x + 3) * (y / 2 + 17);
     internal_assert(expr_source.str() == "((x + 3)*((y/2) + 17))");
 
-    Stmt store = Store::make("buf", (x * 17) / (x - 3), y - 1,  Parameter());
+    Stmt store = Store::make("buf", (x * 17) / (x - 3), y - 1,  Parameter(), const_true());
     Stmt for_loop = For::make("x", -2, y + 2, ForType::Parallel, DeviceAPI::Host, store);
     vector<Expr> args(1); args[0] = x % 3;
     Expr call = Call::make(i32, "buf", args, Call::Extern);
-    Stmt store2 = Store::make("out", call + 1, x, Parameter());
+    Stmt store2 = Store::make("out", call + 1, x, Parameter(), const_true());
     Stmt for_loop2 = For::make("x", 0, y, ForType::Vectorized , DeviceAPI::Host, store2);
     Stmt pipeline = ProducerConsumer::make("buf", for_loop, Stmt(), for_loop2);
     Stmt assertion = AssertStmt::make(y >= 3, Call::make(Int(32), "halide_error_param_too_small_i64",

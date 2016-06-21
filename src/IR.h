@@ -169,7 +169,10 @@ struct Load : public ExprNode<Load> {
     // If it's a load from an image parameter, this points to that
     Parameter param;
 
-    EXPORT static Expr make(Type type, std::string name, Expr index, Buffer image, Parameter param);
+    Expr predicate;
+
+    EXPORT static Expr make(Type type, std::string name, Expr index, Buffer image,
+                            Parameter param, Expr pred);
 };
 
 /** A linear ramp vector node. This is vector with 'lanes' elements,
@@ -246,8 +249,10 @@ struct Store : public StmtNode<Store> {
     Expr value, index;
     // If it's a store to an output buffer, then this parameter points to it.
     Parameter param;
+    Expr predicate;
 
-    EXPORT static Stmt make(std::string name, Expr value, Expr index, Parameter param);
+    EXPORT static Stmt make(std::string name, Expr value, Expr index,
+                            Parameter param, Expr pred);
 };
 
 /** This defines the value of a function at a multi-dimensional

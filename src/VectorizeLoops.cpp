@@ -200,11 +200,11 @@ class RewriteAccessToVectorAlloc : public IRMutator {
     }
 
     void visit(const Load *op) {
-        expr = Load::make(op->type, op->name, mutate_index(op->name, op->index), op->image, op->param);
+        expr = Load::make(op->type, op->name, mutate_index(op->name, op->index), op->image, op->param, mutate(op->predicate));
     }
 
     void visit(const Store *op) {
-        stmt = Store::make(op->name, mutate(op->value), mutate_index(op->name, op->index), op->param);
+        stmt = Store::make(op->name, mutate(op->value), mutate_index(op->name, op->index), op->param, mutate(op->predicate));
     }
 
 public:
@@ -316,13 +316,17 @@ class VectorSubs : public IRMutator {
     }
 
     void visit(const Load *op) {
+        debug(0) << "VISIT LOAD: " <<  Expr(op) << "\n";
         Expr index = mutate(op->index);
-
-        if (index.same_as(op->index)) {
+        Expr predicate = mutate(op->predicate);
+        if (index.same_as(op->index) && predicate.same_as(op->predicate)) {
             expr = op;
         } else {
+            internal_assert(index.type().lanes() == predicate.type().lanes())
+                << "Index: " << index << "\n"
+                << "Predicate: " << predicate << "\n";
             int w = index.type().lanes();
-            expr = Load::make(op->type.with_lanes(w), op->name, index, op->image, op->param);
+            expr = Load::make(op->type.with_lanes(w), op->name, index, op->image, op->param, predicate);
         }
     }
 
@@ -584,12 +588,13 @@ class VectorSubs : public IRMutator {
     void visit(const Store *op) {
         Expr value = mutate(op->value);
         Expr index = mutate(op->index);
+        Expr predicate = mutate(op->predicate);
 
-        if (value.same_as(op->value) && index.same_as(op->index)) {
+        if (value.same_as(op->value) && index.same_as(op->index) && predicate.same_as(op->predicate)) {
             stmt = op;
         } else {
             int lanes = std::max(value.type().lanes(), index.type().lanes());
-            stmt = Store::make(op->name, widen(value, lanes), widen(index, lanes), op->param);
+            stmt = Store::make(op->name, widen(value, lanes), widen(index, lanes), op->param, predicate);
         }
     }
 
@@ -604,7 +609,7 @@ class VectorSubs : public IRMutator {
     void visit(const IfThenElse *op) {
         Expr cond = mutate(op->condition);
         int lanes = cond.type().lanes();
-        debug(3) << "Vectorizing over " << var << "\n"
+        debug(0) << "Vectorizing over " << var << "\n"
                  << "Old: " << op->condition << "\n"
                  << "New: " << cond << "\n";
         if (lanes > 1) {
@@ -634,11 +639,12 @@ class VectorSubs : public IRMutator {
                 Stmt without_likelies =
                     IfThenElse::make(op->condition.as<Call>()->args[0],
                                      op->then_case, op->else_case);
-
+                debug(0) << "without_likelies: " << without_likelies << "\n";
                 stmt =
                     IfThenElse::make(all_true,
                                      mutate(op->then_case),
                                      scalarize(without_likelies));
+                debug(0) << "new stmt: " << stmt << "\n";
             } else {
                 // It's some arbitrary vector condition. Scalarize
                 // it.

@@ -31,7 +31,7 @@ class ReplaceParams : public IRMutator {
     void visit(const Load *op) {
         auto i = replacements.find(op->name);
         if (i != replacements.end()) {
-            expr = Load::make(op->type, op->name, mutate(op->index), op->image, i->second);
+            expr = Load::make(op->type, op->name, mutate(op->index), op->image, i->second, mutate(op->predicate));
         } else {
             IRMutator::visit(op);
         }
@@ -40,7 +40,7 @@ class ReplaceParams : public IRMutator {
     void visit(const Store *op) {
         auto i = replacements.find(op->name);
         if (i != replacements.end()) {
-            stmt = Store::make(op->name, mutate(op->value), mutate(op->index), i->second);
+            stmt = Store::make(op->name, mutate(op->value), mutate(op->index), i->second, mutate(op->predicate));
         } else {
             IRMutator::visit(op);
         }
@@ -70,7 +70,7 @@ class InjectHexagonRpc : public IRMutator {
         if (!var.defined()) {
             Buffer storage(type, {}, nullptr, name + "_buf");
             *(void **)storage.host_ptr() = nullptr;
-            var = Load::make(type_of<void*>(), name + "_buf", 0, storage, Parameter());
+            var = Load::make(type_of<void*>(), name + "_buf", 0, storage, Parameter(), const_true());
         }
         return var;
     }
@@ -94,7 +94,7 @@ class InjectHexagonRpc : public IRMutator {
         Buffer code(type_of<uint8_t>(), {(int)size}, nullptr, name);
         memcpy(code.host_ptr(), buffer, (int)size);
 
-        Expr ptr_0 = Load::make(type_of<uint8_t>(), name, 0, code, Parameter());
+        Expr ptr_0 = Load::make(type_of<uint8_t>(), name, 0, code, Parameter(), const_true());
         return Call::make(Handle(), Call::address_of, {ptr_0}, Call::Intrinsic);
     }
 

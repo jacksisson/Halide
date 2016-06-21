@@ -1028,9 +1028,10 @@ class OptimizeShuffles : public IRMutator {
                 // LUT. Note that for clamped ramps, this loads up to 1
                 // vector past the max. CodeGen_Hexagon::allocation_padding
                 // returns a native vector size to account for this.
+                //TODO(psuriana)
                 Expr lut = Load::make(op->type.with_lanes(const_extent), op->name,
                                       Ramp::make(base, 1, const_extent),
-                                      op->image, op->param);
+                                      op->image, op->param, const_true(const_extent));
 
                 // We know the size of the LUT is not more than 256, so we
                 // can safely cast the index to 8 bit, which
@@ -1042,7 +1043,8 @@ class OptimizeShuffles : public IRMutator {
             }
         }
         if (!index.same_as(op->index)) {
-            expr = Load::make(op->type, op->name, index, op->image, op->param);
+            //TODO(psuriana)
+            expr = Load::make(op->type, op->name, index, op->image, op->param, op->predicate);
         } else {
             expr = op;
         }

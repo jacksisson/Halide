@@ -172,7 +172,7 @@ private:
             // Create a buffer_t object for this allocation.
             vector<Expr> args(dims*3 + 2);
             //args[0] = Call::make(Handle(), Call::null_handle, vector<Expr>(), Call::Intrinsic);
-            Expr first_elem = Load::make(t, buffer_name, 0, Buffer(), Parameter());
+            Expr first_elem = Load::make(t, buffer_name, 0, Buffer(), Parameter(), const_true());
             args[0] = Call::make(Handle(), Call::address_of, {first_elem}, Call::PureIntrinsic);
             args[1] = make_zero(realize->types[idx]);
             for (int i = 0; i < dims; i++) {
@@ -258,7 +258,8 @@ private:
 
             Expr idx = mutate(flatten_args(cv.name, provide->args, !is_output));
             Expr var = Variable::make(cv.value.type(), cv.name + ".value");
-            Stmt store = Store::make(cv.name, var, idx, is_output ? output_buffers[i] : Parameter());
+            Stmt store = Store::make(cv.name, var, idx,
+                is_output ? output_buffers[i] : Parameter(), const_true());
 
             if (result.defined()) {
                 result = Block::make(result, store);
@@ -295,7 +296,8 @@ private:
             const ProvideValue &cv = values[i];
 
             Expr idx = mutate(flatten_args(cv.name, provide->args, !is_output));
-            Stmt store = Store::make(cv.name, cv.value, idx, is_output ? output_buffers[i] : Parameter());
+            Stmt store = Store::make(cv.name, cv.value, idx,
+                is_output ? output_buffers[i] : Parameter(), const_true());
 
             if (result.defined()) {
                 result = Block::make(result, store);
@@ -359,7 +361,8 @@ private:
             Type t = call->type.with_bits(call->type.bytes() * 8);
 
             Expr idx = mutate(flatten_args(name, call->args, !(is_output || is_input)));
-            expr = Load::make(t, name, idx, call->image, call->param);
+            //TODO(psuriana)
+            expr = Load::make(t, name, idx, call->image, call->param, const_true());
 
             if (call->type.bits() != t.bits()) {
                 expr = Cast::make(call->type, expr);
