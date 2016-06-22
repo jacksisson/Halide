@@ -383,6 +383,18 @@ class Interleaver : public IRMutator {
     bool should_deinterleave;
     int num_lanes;
 
+    // Widen an expression to the given number of lanes.
+    Expr widen(Expr e, int lanes) {
+        if (e.type().lanes() == lanes) {
+            return e;
+        } else if (e.type().lanes() == 1) {
+            return Broadcast::make(e, lanes);
+        } else {
+            internal_error << "Mismatched vector lanes in Interleaver\n";
+        }
+        return Expr();
+    }
+
     Expr deinterleave_expr(Expr e) {
         if (e.type().lanes() <= num_lanes) {
             // Just scalarize
@@ -670,7 +682,10 @@ class Interleaver : public IRMutator {
             Expr index = Ramp::make(base, make_one(base.type()), t.lanes());
             Expr value = Call::make(t, Call::interleave_vectors, args, Call::PureIntrinsic);
             //TODO(psuriana): might need to interleave the predicate
-            Stmt new_store = Store::make(store->name, value, index, store->param, store->predicate);
+            /*internal_assert(value.type().lanes() == store->predicate.type().lanes())
+                << "Value: " << value << "\n"
+                << "predicate: " << store->predicate << "\n";*/
+            Stmt new_store = Store::make(store->name, value, index, store->param, widen(store->predicate, t.lanes()));
 
             // Continue recursively into the stuff that
             // collect_strided_stores didn't collect.

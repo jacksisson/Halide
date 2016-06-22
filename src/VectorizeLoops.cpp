@@ -316,17 +316,13 @@ class VectorSubs : public IRMutator {
     }
 
     void visit(const Load *op) {
-        debug(0) << "VISIT LOAD: " <<  Expr(op) << "\n";
         Expr index = mutate(op->index);
         Expr predicate = mutate(op->predicate);
         if (index.same_as(op->index) && predicate.same_as(op->predicate)) {
             expr = op;
         } else {
-            internal_assert(index.type().lanes() == predicate.type().lanes())
-                << "Index: " << index << "\n"
-                << "Predicate: " << predicate << "\n";
-            int w = index.type().lanes();
-            expr = Load::make(op->type.with_lanes(w), op->name, index, op->image, op->param, predicate);
+            int w = std::max(index.type().lanes(), predicate.type().lanes());
+            expr = Load::make(op->type.with_lanes(w), op->name, widen(index, w), op->image, op->param, widen(predicate, w));
         }
     }
 
@@ -594,7 +590,8 @@ class VectorSubs : public IRMutator {
             stmt = op;
         } else {
             int lanes = std::max(value.type().lanes(), index.type().lanes());
-            stmt = Store::make(op->name, widen(value, lanes), widen(index, lanes), op->param, predicate);
+            lanes = std::max(lanes, predicate.type().lanes());
+            stmt = Store::make(op->name, widen(value, lanes), widen(index, lanes), op->param, widen(predicate, lanes));
         }
     }
 
@@ -639,12 +636,10 @@ class VectorSubs : public IRMutator {
                 Stmt without_likelies =
                     IfThenElse::make(op->condition.as<Call>()->args[0],
                                      op->then_case, op->else_case);
-                debug(0) << "without_likelies: " << without_likelies << "\n";
                 stmt =
                     IfThenElse::make(all_true,
                                      mutate(op->then_case),
                                      scalarize(without_likelies));
-                debug(0) << "new stmt: " << stmt << "\n";
             } else {
                 // It's some arbitrary vector condition. Scalarize
                 // it.

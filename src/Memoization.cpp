@@ -235,14 +235,14 @@ public:
         Expr top_level_name_size = (int32_t)top_level_name.size();
         writes.push_back(Store::make(key_name,
                                      Cast::make(Int(32), top_level_name_size),
-                                     (index / Int(32).bytes()), Parameter(), const_true()));
+                                     (index / Int(32).bytes()), Parameter(), const_true(index.type().lanes())));
         index += 4;
         writes.push_back(call_copy_memory(key_name, top_level_name, index));
         // Align to four byte boundary again.
         index += top_level_name_size;
         size_t alignment = 4 + top_level_name.size();
         while (alignment % 4) {
-            writes.push_back(Store::make(key_name, Cast::make(UInt(8), 0), index, Parameter(), const_true()));
+            writes.push_back(Store::make(key_name, Cast::make(UInt(8), 0), index, Parameter(), const_true(index.type().lanes())));
             index = index + 1;
             alignment++;
         }
@@ -266,7 +266,7 @@ public:
         writes.push_back(Store::make(key_name,
                                      StringImm::make(std::to_string(top_level_name.size()) + ":" + top_level_name +
                                                      std::to_string(function_name.size()) + ":" + function_name),
-                                     (index / Handle().bytes()), Parameter(), const_true()));
+                                     (index / Handle().bytes()), Parameter(), const_true(index.type().lanes())));
         size_t alignment = Handle().bytes();
         index += Handle().bytes();
 
@@ -275,7 +275,7 @@ public:
         writes.push_back(Store::make(key_name,
                                      memoize_instance++,
                                      (index / Int(32).bytes()), Parameter(),
-                                     const_true()));
+                                     const_true(index.type().lanes())));
         alignment += 4;
         index += 4;
 #endif
@@ -283,7 +283,7 @@ public:
         size_t needed_alignment = parameters_alignment();
         if (needed_alignment > 1) {
             while (alignment % needed_alignment) {
-                writes.push_back(Store::make(key_name, Cast::make(UInt(8), 0), index, Parameter(), const_true()));
+                writes.push_back(Store::make(key_name, Cast::make(UInt(8), 0), index, Parameter(), const_true(index.type().lanes())));
                 index = index + 1;
                 alignment++;
             }
@@ -293,7 +293,7 @@ public:
             writes.push_back(Store::make(key_name,
                                          i.second.value_expr,
                                          (index / i.second.size_expr),
-                                         Parameter(), const_true()));
+                                         Parameter(), const_true(index.type().lanes())));
             index += i.second.size_expr;
         }
         Stmt blocks = Block::make(writes);

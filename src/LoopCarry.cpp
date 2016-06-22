@@ -425,7 +425,8 @@ class LoopCarryOverLoop : public IRMutator {
             for (size_t i = 0; i < c.size() - 1; i++) {
                 Expr scratch_idx = scratch_index(i, initial_scratch_values[i].type());
                 //TODO(psuriana): might need to fix this to account for predicate
-                Stmt store_to_scratch = Store::make(scratch, initial_scratch_values[i], scratch_idx, Parameter(), const_true());
+                Stmt store_to_scratch = Store::make(scratch, initial_scratch_values[i], scratch_idx,
+                                                    Parameter(), const_true(scratch_idx.type().lanes()));
                 initial_scratch_stores.push_back(store_to_scratch);
             }
 
